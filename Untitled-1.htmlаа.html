@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Descent into Greatness: Enhanced Edition</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@700;900&family=Press+Start+2P&display=swap');
+
+        :root {
+            --primary: #00ff88;
+            --id-color: #ff3c41;
+            --ego-color: #00d2ff;
+            --bg: #05070a;
+        }
+
+        body, html { 
+            margin: 0; padding: 0; width: 100%; height: 100%; 
+            background: var(--bg); color: white;
+            font-family: 'Montserrat', sans-serif;
+            overflow: hidden;
+        }
+
+        #bg-canvas {
+            position: fixed; top: 0; left: 0; pointer-events: none; z-index: 1;
+        }
+
+        .game-container {
+            position: relative; z-index: 10;
+            width: 100%; max-width: 420px; height: 100vh;
+            margin: 0 auto; background: rgba(15, 18, 24, 0.9);
+            display: flex; flex-direction: column;
+            border-left: 1px solid #333; border-right: 1px solid #333;
+        }
+
+        /* UI Elements */
+        .header { padding: 20px; display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.5); }
+        .rank-badge { background: var(--primary); color: black; padding: 5px 12px; border-radius: 5px; font-family: 'Press Start 2P'; font-size: 8px; }
+
+        .stats-area { padding: 15px 20px; }
+        .stat-bar { height: 8px; background: #111; border-radius: 4px; overflow: hidden; border: 1px solid #333; }
+        .fill { height: 100%; transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1); }
+
+        /* Card Animation */
+        .card {
+            flex-grow: 1; margin: 20px; background: #e0e0e0; color: #000;
+            border-radius: 15px; display: flex; flex-direction: column;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 4px solid #000;
+            transition: all 0.3s; position: relative;
+        }
+
+        .card-src { font-size: 9px; font-weight: 900; background: #000; color: #fff; padding: 4px 8px; position: absolute; top: 10px; left: 10px; border-radius: 3px; }
+        .card-img { font-size: 60px; text-align: center; margin-top: 40px; }
+        .card-text { padding: 20px; font-size: 1.1rem; font-weight: 700; text-align: center; line-height: 1.4; flex-grow: 1; display: flex; align-items: center; justify-content: center; }
+
+        /* Buttons */
+        .btns { padding: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .btn {
+            padding: 18px 10px; border-radius: 12px; border: none;
+            color: white; font-weight: 900; cursor: pointer;
+            box-shadow: 0 4px 0 rgba(0,0,0,0.4); font-family: 'Montserrat';
+            transition: 0.1s; display: flex; flex-direction: column; align-items: center;
+        }
+        .btn:active { transform: translateY(4px); box-shadow: none; }
+        .btn-id { background: var(--id-color); }
+        .btn-ego { background: var(--ego-color); }
+
+        /* Overlays */
+        .overlay {
+            position: absolute; inset: 0; background: var(--bg);
+            z-index: 100; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; padding: 30px; text-align: center;
+        }
+
+        .hidden { display: none !important; }
+
+        /* FX */
+        .flash-red { animation: flashR 0.3s; }
+        .flash-blue { animation: flashB 0.3s; }
+        @keyframes flashR { 0% { background: rgba(255, 60, 65, 0.4); } 100% { background: transparent; } }
+        @keyframes flashB { 0% { background: rgba(0, 210, 255, 0.4); } 100% { background: transparent; } }
+
+        .glitch-active { animation: shake 0.1s infinite; filter: hue-rotate(90deg) contrast(1.5); }
+        @keyframes shake { 0% {transform:translate(0)} 50% {transform:translate(2px, -2px)} 100% {transform:translate(-2px, 2px)} }
+
+        /* Choice Feedback */
+        .choice-feedback {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.9); color: white; padding: 20px;
+            border-radius: 15px; text-align: center; font-weight: 700;
+            border: 2px solid currentColor; max-width: 300px;
+            opacity: 0; transition: opacity 0.3s;
+            pointer-events: none; z-index: 200;
+        }
+        .choice-feedback.show { opacity: 1; }
+        .choice-feedback.ego { color: var(--ego-color); }
+        .choice-feedback.id { color: var(--id-color); }
+    </style>
+</head>
+<body>
+
+<canvas id="bg-canvas"></canvas>
+
+<div class="game-container" id="game-ui">
+    <div id="start-screen" class="overlay">
+        <div style="font-size: 60px; margin-bottom: 20px; filter: drop-shadow(0 0 10px var(--primary));">🧠</div>
+        <h1 style="font-family: 'Press Start 2P'; font-size: 16px; color: var(--primary);">DESCENT INTO GREATNESS</h1>
+        <button class="btn btn-ego" style="width: 220px; margin-top: 30px;" onclick="startGame()">START SESSION</button>
+        <p style="font-size: 10px; margin-top: 20px; opacity: 0.5;">SOUND WILL BE ACTIVATED</p>
+    </div>
+
+    <div id="end-screen" class="overlay hidden">
+        <h2 style="font-family: 'Press Start 2P'; font-size: 12px;">ANALYSIS COMPLETE</h2>
+        <div id="res-box" style="background: white; color: black; padding: 20px; border-radius: 15px; margin: 20px 0;">
+            <h1 id="res-title">ARCHETYPE</h1>
+            <p id="res-desc"></p>
+        </div>
+        <button class="btn btn-id" style="width: 200px;" onclick="location.reload()">REBOOT</button>
+    </div>
+
+    <div class="header">
+        <div class="rank-badge" id="rank-tag">RANK: F</div>
+        <div style="font-weight: 900;">🏆 <span id="score-val">0</span></div>
+    </div>
+
+    <div class="stats-area">
+        <div style="display: flex; justify-content: space-between; font-size: 10px; margin-bottom: 5px;">
+            <span>EGO SANITY</span>
+            <span id="hp-num">100%</span>
+        </div>
+        <div class="stat-bar">
+            <div id="hp-fill" class="fill" style="width: 100%; background: var(--ego-color);"></div>
+        </div>
+    </div>
+
+    <div class="card" id="main-card">
+        <div id="c-src" class="card-src">SOURCE</div>
+        <div id="c-emoji" class="card-img">⚡</div>
+        <div id="c-text" class="card-text">Loading...</div>
+    </div>
+
+    <div class="btns">
+        <button class="btn btn-ego" onclick="choice('ego')">
+            <span>EGO</span>
+            <small style="font-size: 8px; opacity: 0.8;">SANITY</small>
+        </button>
+        <button class="btn btn-id" onclick="choice('id')">
+            <span>ID</span>
+            <small style="font-size: 8px; opacity: 0.8;">AMBITION</small>
+        </button>
+    </div>
+
+    <!-- Choice Feedback Overlay -->
+    <div id="choice-feedback" class="choice-feedback">
+        <div id="feedback-text"></div>
+    </div>
+</div>
+
+<script>
+    // --- AUDIO ENGINE (Web Audio API) ---
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    let audioCtx;
+    let backgroundMusic = null;
+
+    function initAudio() {
+        if (!audioCtx) audioCtx = new AudioCtx();
+    }
+
+    // Background ambient music
+    function startBackgroundMusic() {
+        if (!audioCtx) return;
+
+        stopBackgroundMusic(); // Stop any existing music
+
+        backgroundMusic = {
+            oscillators: [],
+            gains: [],
+            filters: []
+        };
+
+        // Create atmospheric pads
+        for (let i = 0; i < 3; i++) {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            const filter = audioCtx.createBiquadFilter();
+
+            // Different frequencies for atmospheric sound
+            const baseFreq = [220, 330, 440][i];
+
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(baseFreq, audioCtx.currentTime);
+            osc.frequency.setValueAtTime(baseFreq * 1.01, audioCtx.currentTime + 0.1); // Slight detuning
+
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(800, audioCtx.currentTime);
+            filter.Q.setValueAtTime(2, audioCtx.currentTime);
+
+            gain.gain.setValueAtTime(0.02, audioCtx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.08, audioCtx.currentTime + 2);
+
+            osc.connect(filter);
+            filter.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            osc.start();
+
+            backgroundMusic.oscillators.push(osc);
+            backgroundMusic.gains.push(gain);
+            backgroundMusic.filters.push(filter);
+        }
+
+        // Add subtle modulation
+        const lfo = audioCtx.createOscillator();
+        const lfoGain = audioCtx.createGain();
+
+        lfo.type = 'sine';
+        lfo.frequency.setValueAtTime(0.1, audioCtx.currentTime); // Very slow modulation
+        lfoGain.gain.setValueAtTime(50, audioCtx.currentTime);
+
+        lfo.connect(lfoGain);
+        lfoGain.connect(backgroundMusic.filters[0].frequency);
+        lfoGain.connect(backgroundMusic.filters[1].frequency);
+        lfoGain.connect(backgroundMusic.filters[2].frequency);
+
+        lfo.start();
+
+        backgroundMusic.modulation = { lfo, lfoGain };
+    }
+
+    function stopBackgroundMusic() {
+        if (!backgroundMusic) return;
+
+        backgroundMusic.oscillators.forEach(osc => {
+            try {
+                osc.stop();
+            } catch (e) {}
+        });
+
+        if (backgroundMusic.modulation) {
+            try {
+                backgroundMusic.modulation.lfo.stop();
+            } catch (e) {}
+        }
+
+        backgroundMusic = null;
+    }
+
+    function playSynthSound(type) {
+        if (!audioCtx) return;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        if (type === 'ego') {
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(440, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.1);
+            gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+        } else {
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+            osc.frequency.linearRampToValueAtTime(50, audioCtx.currentTime + 0.2);
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+            // Add some noise
+            const noise = audioCtx.createOscillator();
+            noise.type = 'square';
+            noise.frequency.setValueAtTime(Math.random() * 100, audioCtx.currentTime);
+            noise.connect(gain);
+            noise.start();
+            noise.stop(audioCtx.currentTime + 0.1);
+        }
+
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.4);
+    }
+
+    // --- PARTICLES ENGINE ---
+    const canvas = document.getElementById('bg-canvas');
+    const ctx = canvas.getContext('2d');
+    let particles = [];
+
+    function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    }
+    window.onresize = resize;
+    resize();
+
+    class Particle {
+        constructor(x, y, color, type) {
+            this.x = x; this.y = y; this.color = color;
+            this.size = Math.random() * 5 + 2;
+            this.vx = (Math.random() - 0.5) * 10;
+            this.vy = (Math.random() - 0.5) * 10;
+            this.life = 1;
+            this.type = type;
+        }
+        update() {
+            this.x += this.vx; this.y += this.vy;
+            this.life -= 0.02;
+        }
+        draw() {
+            ctx.fillStyle = this.color;
+            ctx.globalAlpha = this.life;
+            if(this.type === 'id') ctx.fillRect(this.x, this.y, this.size * 2, this.size * 2);
+            else ctx.beginPath(), ctx.arc(this.x, this.y, this.size, 0, Math.PI*2), ctx.fill();
+        }
+    }
+
+    function createBurst(x, y, color, type) {
+        for(let i=0; i<20; i++) particles.push(new Particle(x, y, color, type));
+    }
+
+    function animate() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        particles = particles.filter(p => p.life > 0);
+        particles.forEach(p => { p.update(); p.draw(); });
+        requestAnimationFrame(animate);
+    }
+    animate();
+
+    // --- CHOICE FEEDBACK SYSTEM ---
+    const feedbackMessages = {
+        ego: {
+            positive: [
+                "Your rational mind prevails. Sanity restored.",
+                "Balance maintained. Your ego strengthens.",
+                "Wise choice. Relationships preserved.",
+                "Conscious decision. Mental clarity enhanced.",
+                "Self-control rewarded. Inner peace grows."
+            ],
+            negative: [
+                "Safety chosen over greatness. Ambition stalls.",
+                "Caution over courage. Progress slows.",
+                "Stability prioritized. Dreams deferred.",
+                "Prudence over passion. Momentum lost."
+            ]
+        },
+        id: {
+            positive: [
+                "Raw ambition unleashed. Greatness approaches.",
+                "Instinct drives you forward. Power grows.",
+                "Unbridled desire. Achievement accelerates.",
+                "Primal force awakened. Boundaries pushed.",
+                "Bold action taken. Destiny shaped."
+            ],
+            negative: [
+                "Impulse over reason. Sanity frays.",
+                "Dark desires surface. Reality distorts.",
+                "Uncontrolled ambition. Connections sever.",
+                "Primal urges dominate. Balance threatens.",
+                "Chaotic energy unleashed. Mind fractures."
+            ]
+        }
+    };
+
+    function showChoiceFeedback(type, healthChange, scoreChange) {
+        const feedbackEl = document.getElementById('choice-feedback');
+        const textEl = document.getElementById('feedback-text');
+
+        // Determine if this is a "positive" or "negative" choice based on health impact
+        const isPositive = (type === 'ego' && healthChange > 0) || (type === 'id' && scoreChange > 100);
+
+        const messages = isPositive ? feedbackMessages[type].positive : feedbackMessages[type].negative;
+        const message = messages[Math.floor(Math.random() * messages.length)];
+
+        // Add specific feedback based on the choice impact
+        let additionalInfo = '';
+        if (Math.abs(healthChange) >= 40) {
+            additionalInfo = healthChange > 0 ? '\nSanity significantly restored.' : '\nMental strain intensifies.';
+        } else if (scoreChange >= 500) {
+            additionalInfo = '\nAmbition surges powerfully.';
+        }
+
+        textEl.textContent = message + additionalInfo;
+        feedbackEl.className = `choice-feedback ${type} show`;
+
+        // Hide after 3 seconds
+        setTimeout(() => {
+            feedbackEl.classList.remove('show');
+        }, 3000);
+    }
+
+    // --- GAME LOGIC ---
+    const scenarios = [
+        { src: "WHIPLASH", emo: "🥁", txt: "Your fingers are bloody, but the conductor demands a faster tempo. Will you continue?", id: {h:-40, s:500}, ego: {h:20, s:0} },
+        { src: "FRANKENSTEIN", emo: "🧟", txt: "You're close to creating life. You need to steal one more body. Will you risk it?", id: {h:-50, s:700}, ego: {h:25, s:-100} },
+        { src: "CRIME & PUNISHMENT", emo: "🪓", txt: "You consider yourself 'entitled'. Kill the old woman for a greater purpose?", id: {h:-60, s:1000}, ego: {h:40, s:-200} },
+        { src: "DURAK", emo: "🏢", txt: "The building will collapse in an hour. You're alone against corruption. Will you go all the way?", id: {h:-45, s:600}, ego: {h:20, s:50} },
+        { src: "LU XUN", emo: "👥", txt: "You think everyone around you is a cannibal. Will you scream about it?", id: {h:-30, s:300}, ego: {h:15, s:0} },
+
+        // New Scenarios
+        { src: "AMBITION LIMIT", emo: "🎯", txt: "You realize your ambition has grown stronger than any social connection you have. Like Saitama, you are close to achieving something that will make you 'untouchable.' Do you keep going, even if total emotional numbness and isolation are the price?", id: {h:-45, s:800}, ego: {h:15, s:-50} },
+        { src: "SCIENTIFIC OBSESSION", emo: "🧪", txt: "You are on the verge of a discovery that could change the world, but you must abandon your family and physical health to complete it. Do you continue your work like Victor Frankenstein?", id: {h:-50, s:900}, ego: {h:20, s:-150} },
+        { src: "TRUTH-SEEKER DILEMMA", emo: "🔍", txt: "You believe everyone around you is wrong, blind, or even dangerous. You think you see the 'real truth,' but society is starting to call you insane. Do you trust your own mind or surrender to society's version of reality?", id: {h:-35, s:400}, ego: {h:25, s:-100} },
+        { src: "DOMINANT ID", emo: "👹", txt: "Your unconscious desire (Id) pushes you toward achieving something immediately — fame, perfection, recognition. Your Ego warns you that this path will destroy your relationships and sanity. Do you follow impulse or reason?", id: {h:-55, s:750}, ego: {h:30, s:-75} },
+        { src: "ISOLATION OF POWER", emo: "👑", txt: "You've become so skilled that no challenge excites you anymore. Your success makes you feel disconnected from everyone. Do you continue pursuing mastery, or stop before ambition erases your humanity?", id: {h:-40, s:600}, ego: {h:20, s:-25} },
+        { src: "MONSTER YOU CREATE", emo: "👾", txt: "A creation, idea, or project of yours has started to harm others or become uncontrollable. Do you confess your mistake to society, or hide it to protect your ambition and reputation?", id: {h:-50, s:700}, ego: {h:35, s:-200} },
+        { src: "SOCIETY VS SELF", emo: "⚖️", txt: "People treat you as unstable because your beliefs don't fit social norms. Do you keep fighting for your ideas or adapt to society to avoid isolation?", id: {h:-30, s:350}, ego: {h:15, s:0} },
+        { src: "SUPEREGO TRAP", emo: "🛡️", txt: "Your Superego tells you that you must act morally, even if it destroys your life. Do you sacrifice your well-being for moral perfection, or ignore the Superego and protect yourself?", id: {h:-25, s:200}, ego: {h:40, s:-100} },
+        { src: "EMOTIONAL NUMBNESS", emo: "❄️", txt: "You achieve a major goal… but feel nothing. The cost of greatness is emotional emptiness. Do you continue pushing further, or step back to reconnect with your humanity?", id: {h:-35, s:500}, ego: {h:25, s:-50} },
+        { src: "FORBIDDEN KNOWLEDGE", emo: "📚", txt: "You discover a dangerous truth that could elevate you above others — but using it could isolate you forever. Do you pursue the truth or protect your connection to society?", id: {h:-45, s:650}, ego: {h:20, s:-75} },
+        { src: "MADNESS THRESHOLD", emo: "🌀", txt: "Your Id becomes so dominant that logic disappears. You begin acting on impulse, ignoring consequences. Do you trust your instinctual drives or fight to restore your Ego?", id: {h:-60, s:800}, ego: {h:35, s:-125} },
+        { src: "DISCONNECT FROM LIFE", emo: "🌆", txt: "Your achievements place you so far above others that normal human relationships feel pointless. Do you isolate yourself completely, or lower your ambitions to stay connected?", id: {h:-40, s:550}, ego: {h:20, s:-25} },
+        { src: "ETHICAL CROSSROAD", emo: "🛤️", txt: "Your Superego demands you do the 'right' thing. Your Id demands you chase your goal. Your Ego is collapsing under pressure. Which inner voice do you obey?", id: {h:-45, s:600}, ego: {h:30, s:-150} },
+        { src: "EVERYONE IS WRONG", emo: "👥", txt: "You believe society is corrupt or blind, and only you can fix it. Do you keep fighting alone, or question whether your obsession is turning into madness?", id: {h:-35, s:450}, ego: {h:25, s:-50} },
+        { src: "FINAL STEP", emo: "🚪", txt: "You stand one step away from greatness — scientific, moral, physical, or ideological. But taking that step will cost your sanity and disconnect you from everyone. Do you take it?", id: {h:-50, s:1000}, ego: {h:40, s:-200} },
+        { src: "HERO NO PURPOSE", emo: "🦸", txt: "You save people effortlessly, but your victories feel meaningless. Do you keep saving the world, or stop before the emptiness consumes you?", id: {h:-30, s:400}, ego: {h:20, s:-25} },
+        { src: "CREATOR'S GUILT", emo: "🎨", txt: "Your project begins hurting innocent people. Do you destroy your life's work or allow it to continue so your ambition survives?", id: {h:-45, s:700}, ego: {h:35, s:-175} },
+        { src: "PARANOIA SPIRAL", emo: "👁️", txt: "You notice small signs that someone might be plotting against you. Everyone else says you're imagining things. Do you trust your instincts or accept their version of reality?", id: {h:-40, s:500}, ego: {h:25, s:-75} },
+        { src: "PLEASURE DRIVE", emo: "🎉", txt: "You can achieve instant satisfaction by breaking a rule. Your Ego warns it will have long-term consequences. Do you give in to immediate pleasure?", id: {h:-25, s:300}, ego: {h:15, s:-50} },
+        { src: "WEIGHT OF POWER", emo: "🏋️", txt: "Your strength has made you emotionally distant. Friends try to reach out, but you feel nothing. Do you push them away or fight to feel something again?", id: {h:-35, s:450}, ego: {h:20, s:-25} },
+        { src: "FORBIDDEN EXPERIMENT", emo: "🧬", txt: "You're offered a chance to resurrect someone or revive a lost idea. But it could unleash something uncontrollable. Do you take the risk?", id: {h:-50, s:800}, ego: {h:30, s:-150} },
+        { src: "WATCHING SOCIETY", emo: "👀", txt: "You feel judged by everyone — their looks, their whispers, their silence. Are they actually hostile, or is it your mind collapsing? Which do you believe?", id: {h:-40, s:500}, ego: {h:25, s:-75} },
+        { src: "EGO COLLAPSE", emo: "💥", txt: "Your Id screams for greatness. Your Superego demands morality. Your Ego can't balance them anymore. Do you choose ambition or virtue?", id: {h:-45, s:650}, ego: {h:35, s:-125} },
+        { src: "LONELINESS OF PERFECTION", emo: "🥇", txt: "You reach a level of skill no one else can match. Do you embrace a life of isolation, or intentionally sabotage yourself to stay human?", id: {h:-35, s:550}, ego: {h:20, s:-50} },
+        { src: "LIVING CONSEQUENCE", emo: "👻", txt: "Your creation returns, seeking answers — or revenge. Do you face what you brought into the world, or run like Victor did?", id: {h:-50, s:750}, ego: {h:40, s:-150} },
+        { src: "REALITY DISINTEGRATION", emo: "🌪️", txt: "You can't tell if the danger is real or imagined. Do you trust your senses, or force yourself to believe what others say?", id: {h:-45, s:600}, ego: {h:30, s:-100} },
+        { src: "SUPEREGO PUNISHMENT", emo: "⚖️", txt: "You act perfectly moral, but your Superego still criticizes you. Do you keep trying to be flawless or rebel against your inner judge?", id: {h:-20, s:150}, ego: {h:25, s:-75} },
+        { src: "EMPTY VICTORY", emo: "🏆", txt: "You win a battle that no one believes you fought. Do you pursue recognition, or accept your anonymous fate?", id: {h:-30, s:400}, ego: {h:15, s:0} },
+        { src: "OBSESSION EATS YOU", emo: "🍽️", txt: "Your ambition becomes your only source of meaning. Do you let it consume your entire life, or attempt to rebuild balance?", id: {h:-50, s:700}, ego: {h:30, s:-100} },
+        { src: "OUTSIDER IDENTITY", emo: "🚪", txt: "Society doesn't accept your worldview. Do you reshape yourself to fit in or embrace the role of the outsider?", id: {h:-25, s:250}, ego: {h:15, s:0} },
+        { src: "TEMPTATION OF POWER", emo: "⚡", txt: "Someone offers you limitless power instantly. But with it comes emotional numbness. Do you take the offer?", id: {h:-45, s:800}, ego: {h:20, s:-100} },
+        { src: "GOD COMPLEX", emo: "👑", txt: "You gain the ability to control life or change fate. Do you use this power or reject it to remain human?", id: {h:-40, s:900}, ego: {h:35, s:-200} },
+        { src: "WAR AGAINST SOCIETY", emo: "⚔️", txt: "You believe society is fundamentally wrong and broken. Do you fight it alone, or question if your mind is fracturing?", id: {h:-35, s:500}, ego: {h:25, s:-50} },
+        { src: "MORAL BOUNDARY", emo: "🚧", txt: "You can reach your goal by violating one important moral rule. Do you cross that line or stay loyal to your values?", id: {h:-55, s:750}, ego: {h:40, s:-150} },
+        { src: "DOOR TO GREATNESS", emo: "🚪", txt: "A final door stands before you — behind it lies greatness, but also the loss of your mind, relationships, and humanity. Do you open the door?", id: {h:-50, s:1000}, ego: {h:45, s:-250} },
+        { src: "BECOMING SPECIAL", emo: "⭐", txt: "You train harder than everyone around you, pushing far beyond human limits. Your friends warn that you're losing touch with reality. Do you keep training until you transcend humanity, or stop before ambition consumes your identity?", id: {h:-40, s:700}, ego: {h:25, s:-75} },
+        { src: "UNCONTROLLED CONSEQUENCE", emo: "🔥", txt: "Your creation starts showing signs of hatred toward the world. Do you confront it and take responsibility, or pretend everything is fine to protect your work?", id: {h:-45, s:650}, ego: {h:35, s:-125} },
+        { src: "SOCIAL LABEL", emo: "🏷️", txt: "Everyone in town whispers that you're 'unstable.' Do you distance yourself further or try to convince them you're sane?", id: {h:-30, s:350}, ego: {h:20, s:0} },
+        { src: "ID'S WHISPER", emo: "👂", txt: "Your Id tells you that greatness must be achieved at any cost. Your Superego warns that the cost will be your humanity. Which voice do you obey?", id: {h:-50, s:750}, ego: {h:35, s:-100} },
+        { src: "HOLLOW ACHIEVEMENT", emo: "🕳️", txt: "You finally defeat your greatest enemy — but feel absolutely nothing. Do you continue fighting, hoping emotions return, or abandon the path of strength?", id: {h:-35, s:500}, ego: {h:25, s:-50} },
+        { src: "SCIENTIST'S CURSE", emo: "⚗️", txt: "You discover a way to enhance human life but risk creating something monstrous. Do you advance the experiment?", id: {h:-50, s:850}, ego: {h:30, s:-150} },
+        { src: "DOUBT IN LOOKS", emo: "🤨", txt: "Every time someone looks at you, you feel judged. Is it paranoia… or are they hiding something? Which interpretation do you choose?", id: {h:-40, s:500}, ego: {h:25, s:-75} },
+        { src: "EGO SHUTDOWN", emo: "🔌", txt: "Between your desires and your morals, your Ego is collapsing. Do you let your impulses take control or surrender to guilt and self-restraint?", id: {h:-45, s:600}, ego: {h:35, s:-125} },
+        { src: "ENDLESS STRENGTH", emo: "💪", txt: "You are capable of immense power, but nobody believes in your achievements. Do you keep living in anonymity or fight for recognition?", id: {h:-30, s:400}, ego: {h:15, s:0} },
+        { src: "CREATOR VS CREATION", emo: "👨‍🎨", txt: "Your creation asks you why you gave it life. Do you tell the truth — that it was ambition — or lie to protect yourself?", id: {h:-40, s:550}, ego: {h:30, s:-100} },
+        { src: "TRUTH OR MADNESS", emo: "🤯", txt: "You discover something disturbing that no one else sees. Do you risk your sanity to pursue the truth?", id: {h:-45, s:650}, ego: {h:25, s:-100} },
+        { src: "ID'S TEMPTATION", emo: "🍎", txt: "A shortcut to instant success appears. Your Ego tells you the consequences will be severe. Do you take the shortcut?", id: {h:-35, s:500}, ego: {h:20, s:-75} },
+        { src: "POWER OF ISOLATION", emo: "🏔️", txt: "People fear your strength and avoid you. Do you use your power to force respect or retreat into solitude?", id: {h:-35, s:450}, ego: {h:15, s:-25} },
+        { src: "ETHICAL COLLAPSE", emo: "⚖️", txt: "Your moral values weaken as your ambition grows. Do you resist the temptation to break your ethics?", id: {h:-45, s:600}, ego: {h:30, s:-125} },
+        { src: "BREAKING POINT", emo: "💔", txt: "Your thoughts become louder and more chaotic. Do you keep following them or seek help before you spiral?", id: {h:-40, s:450}, ego: {h:25, s:-50} },
+        { src: "GOD-LEVEL CHOICE", emo: "🌟", txt: "You're offered a serum that guarantees unimaginable power — but you may lose your emotions forever. Do you accept?", id: {h:-50, s:900}, ego: {h:30, s:-200} },
+        { src: "ULTIMATE DISCOVERY", emo: "🔬", txt: "You are one step away from a breakthrough that will make you famous — but dangerous evidence suggests it will cause harm. Do you reveal your results or hide them?", id: {h:-45, s:800}, ego: {h:35, s:-150} },
+        { src: "WALL OF SOCIETY", emo: "🧱", txt: "You try to warn everyone of a danger you see clearly. They dismiss you as delusional. Do you keep warning them or stay silent?", id: {h:-35, s:400}, ego: {h:20, s:0} },
+        { src: "INNER CONFLICT", emo: "⚔️", txt: "Your Id wants freedom. Your Superego demands obedience. Your Ego can't hold the balance anymore. Which side do you let win?", id: {h:-45, s:650}, ego: {h:35, s:-125} },
+        { src: "LAST PUNCH", emo: "👊", txt: "You must choose: one final punch that guarantees victory but destroys your last emotional bonds… Do you strike?", id: {h:-50, s:1000}, ego: {h:40, s:-200} }
+    ];
+
+    let hp = 100, score = 0, turn = 1, idChoices = 0, egoChoices = 0;
+
+    function startGame() {
+        initAudio();
+        startBackgroundMusic();
+        document.getElementById('start-screen').classList.add('hidden');
+        render();
+    }
+
+    function render() {
+        if(hp <= 0 || turn > 8) return endGame();
+        const s = scenarios[Math.floor(Math.random() * scenarios.length)];
+        window.currentS = s;
+        document.getElementById('c-src').innerText = "SOURCE: " + s.src;
+        document.getElementById('c-emoji').innerText = s.emo;
+        document.getElementById('c-text').innerText = s.txt;
+    }
+
+    function choice(type) {
+        const move = window.currentS[type];
+        const color = type === 'id' ? '#ff3c41' : '#00d2ff';
+
+        const healthChange = move.h;
+        const scoreChange = move.s;
+
+        // Track choice patterns
+        if (type === 'id') idChoices++;
+        else egoChoices++;
+
+        hp = Math.max(0, Math.min(100, hp + move.h));
+        score += move.s;
+
+        // Effects
+        playSynthSound(type);
+        createBurst(window.innerWidth/2, window.innerHeight/2, color, type);
+        document.body.classList.add(type === 'id' ? 'flash-red' : 'flash-blue');
+
+        // Show choice feedback
+        showChoiceFeedback(type, healthChange, scoreChange);
+
+        setTimeout(() => document.body.classList.remove('flash-red', 'flash-blue'), 300);
+
+        updateStats();
+        turn++;
+
+        document.getElementById('main-card').style.transform = "scale(0.8) rotate("+(type==='id'?10:-10)+"deg)";
+        setTimeout(() => {
+            document.getElementById('main-card').style.transform = "scale(1) rotate(0)";
+            render();
+        }, 200);
+    }
+
+    function updateStats() {
+        document.getElementById('hp-num').innerText = hp + "%";
+        document.getElementById('hp-fill').style.width = hp + "%";
+        document.getElementById('score-val').innerText = score;
+        
+        if(hp < 35) document.getElementById('game-ui').classList.add('glitch-active');
+        else document.getElementById('game-ui').classList.remove('glitch-active');
+    }
+
+    function endGame() {
+        stopBackgroundMusic();
+        document.getElementById('end-screen').classList.remove('hidden');
+        const resTitle = document.getElementById('res-title');
+        const resDesc = document.getElementById('res-desc');
+
+        // Calculate choice ratio (ID dominance)
+        const totalChoices = idChoices + egoChoices;
+        const idRatio = totalChoices > 0 ? idChoices / totalChoices : 0.5;
+
+        // Select poetic ending based on psychological profile
+        let endingKey = '';
+
+        // Complex mapping to ensure variety and meaningful endings
+        if (hp <= 0) {
+            // Broken mind - extreme ambition consequences
+            if (score >= 2500) endingKey = 'broken_legendary_reckless'; // The Ghost of Your Own Ambition
+            else if (score >= 1000 && idRatio >= 0.7) endingKey = 'broken_great_ambitious'; // The Thinker Who Lost His Thoughts
+            else if (score >= 500 && idRatio >= 0.8) endingKey = 'broken_moderate_reckless'; // The Last Rational Moment
+            else endingKey = 'fractured_minimal_moderate'; // The Fragmented Dreamer
+        }
+        else if (hp <= 25) {
+            // Fractured mind - partial breakdown
+            if (score >= 2000 && idRatio >= 0.8) endingKey = 'fractured_legendary_reckless'; // The Human Experiment
+            else if (score >= 1000) endingKey = 'fractured_great_moderate'; // The Man Who Saw Too Much
+            else if (idRatio >= 0.5) endingKey = 'fractured_moderate_balanced'; // The Mind That Split to Survive
+            else endingKey = 'fractured_minimal_moderate'; // The Fragmented Dreamer
+        }
+        else if (hp <= 50) {
+            // Unstable mind - turbulent psyche
+            if (score >= 2000 && idRatio >= 0.8) endingKey = 'unstable_legendary_reckless'; // The Brilliant Mind That Outshined Its Own Life
+            else if (score >= 1000 && idRatio >= 0.6) endingKey = 'unstable_great_ambitious'; // The Visionary Turned Outsider
+            else if (idRatio >= 0.7) endingKey = 'unstable_moderate_reckless'; // The Id's Favorite Toy
+            else endingKey = 'unstable_great_moderate'; // fallback
+        }
+        else if (hp <= 75) {
+            // Wounded mind - scarred but functional
+            if (score >= 2000) endingKey = 'wounded_legendary_ambitious'; // The Scientist With No Soul Left
+            else if (score >= 1000) endingKey = 'wounded_great_ambitious'; // The One Who Became Extraordinary… and Paid the Price
+            else if (idRatio <= 0.3) endingKey = 'wounded_moderate_cautious'; // The Person Who Tried to Save Everyone Except Themselves
+            else endingKey = 'wounded_minimal_cautious'; // The Quiet Healer
+        }
+        else {
+            // Whole mind - preserved sanity
+            if (score >= 2000 && idRatio >= 0.8) endingKey = 'whole_legendary_reckless'; // The Hero Who Outran Humanity
+            else if (score >= 1000) endingKey = 'whole_great_moderate'; // The Champion of Nothingness
+            else if (score >= 500) endingKey = 'whole_moderate_balanced'; // The Harmonious Soul
+            else endingKey = 'whole_minimal_cautious'; // The Greatness Without a Witness
+        }
+
+        // Ultra-interesting personalized endings
+        const endings = {
+            // 1. The Ghost of Your Own Ambition
+            'broken_legendary_reckless': {
+                title: "THE GHOST OF YOUR OWN AMBITION",
+                desc: "You chased greatness so intensely that you became a shadow of the person you once were. You don't live a life — you haunt it. People remember what you wanted, not who you are."
+            },
+
+            // 2. The Thinker Who Lost His Thoughts
+            'broken_great_ambitious': {
+                title: "THE THINKER WHO LOST HIS THOUGHTS",
+                desc: "You believed you could control your mind. But in the end, your own thoughts turned into a labyrinth with no exit. You became the prisoner and the guard at the same time."
+            },
+
+            // 3. The Hero Who Outran Humanity
+            'whole_legendary_reckless': {
+                title: "THE HERO WHO OUTRAN HUMANITY",
+                desc: "You became so strong mentally or emotionally that normal people no longer 'fit' you. Achievements came easily… But conversations became hard. You evolved — but nobody followed."
+            },
+
+            // 4. The Scientist With No Soul Left
+            'wounded_legendary_ambitious': {
+                title: "THE SCIENTIST WITH NO SOUL LEFT",
+                desc: "You gained knowledge. You gained progress. But you lost pieces of your soul along the way. Each answer cost you one emotion, one connection, one memory. Now you know everything — except how to be human."
+            },
+
+            // 5. The Man Who Saw Too Much
+            'fractured_great_moderate': {
+                title: "THE MAN WHO SAW TOO MUCH",
+                desc: "You noticed things others ignore. Patterns, corruption, hypocrisy, lies. The more you saw, the more society pushed you away. Maybe you're the only one who understands the truth. Or maybe the truth is eating you alive."
+            },
+
+            // 6. The Id's Favorite Toy
+            'unstable_moderate_reckless': {
+                title: "THE ID'S FAVORITE TOY",
+                desc: "Your decisions reveal something unexpected: You weren't controlling your desires — your desires were controlling you. The Id didn't just whisper. It steered the wheel."
+            },
+
+            // 7. The One Who Became Extraordinary… and Paid the Price
+            'wounded_great_ambitious': {
+                title: "THE ONE WHO BECAME EXTRAORDINARY… AND PAID THE PRICE",
+                desc: "You joined the rare few who reach beyond normal limits. But the journey sculpted you into a person few can relate to. The world admires you — but from a distance."
+            },
+
+            // 8. The Brilliant Mind That Outshined Its Own Life
+            'unstable_legendary_reckless': {
+                title: "THE BRILLIANT MIND THAT OUTSHINED ITS OWN LIFE",
+                desc: "People with your mindset create revolutions, art, discoveries. But they often forget to create one thing: a life worth living. Your mind grew brighter… as everything around you dimmed."
+            },
+
+            // 9. The Person Who Tried to Save Everyone Except Themselves
+            'wounded_moderate_cautious': {
+                title: "THE PERSON WHO TRIED TO SAVE EVERYONE EXCEPT THEMSELVES",
+                desc: "You chose responsibility over safety. Morality over comfort. Duty over peace. You became a hero to others — but a stranger to yourself."
+            },
+
+            // 10. The Champion of Nothingness
+            'whole_great_moderate': {
+                title: "THE CHAMPION OF NOTHINGNESS",
+                desc: "You achieved so much that achievements lost meaning. You became a champion with no championship, a winner with no thrill, an achiever with no desire left. You reached 'the top' — but the view is empty."
+            },
+
+            // 11. The Mind That Split to Survive
+            'fractured_moderate_balanced': {
+                title: "THE MIND THAT SPLIT TO SURVIVE",
+                desc: "You lived between impulse and morality, hope and fear. In the end, you became fragmented — not broken, but divided. Each version of you fights to be the 'real' one."
+            },
+
+            // 12. The Visionary Turned Outsider
+            'unstable_great_ambitious': {
+                title: "THE VISIONARY TURNED OUTSIDER",
+                desc: "Your ideas were too big. Your thoughts too sharp. Your ambition too loud. Slowly, society stopped understanding you. You didn't choose isolation — it simply happened."
+            },
+
+            // 13. The Last Rational Moment
+            'broken_moderate_reckless': {
+                title: "THE LAST RATIONAL MOMENT",
+                desc: "At some point in the game, you made a choice that completely rewrote your mental path. You might not have noticed it. But that decision pushed you across the line where rationality ends and devotion begins."
+            },
+
+            // 14. The Human Experiment
+            'fractured_legendary_reckless': {
+                title: "THE HUMAN EXPERIMENT",
+                desc: "You pushed yourself like Victor pushed science. You tested your limits like an experiment. But in the end, you weren't the scientist — you were the subject. And the experiment changed you."
+            },
+
+            // 15. The Greatness Without a Witness
+            'whole_minimal_cautious': {
+                title: "THE GREATNESS WITHOUT A WITNESS",
+                desc: "You built something incredible inside your mind — discipline, ambition, vision. But nobody saw it. Not because it wasn't real — but because it existed too high above the world around you. You reached greatness, but nobody was there to see the moment."
+            },
+
+            // Additional mappings for more variety
+            'whole_moderate_balanced': {
+                title: "THE HARMONIOUS SOUL",
+                desc: "You found the delicate balance between ambition and sanity. Not legendary, not broken — just authentically human. Your achievements matter because they didn't cost your soul."
+            },
+
+            'wounded_minimal_cautious': {
+                title: "THE QUIET HEALER",
+                desc: "Small steps, careful choices. You didn't reach the mountaintop, but you didn't fall into the abyss either. Sometimes the greatest victory is simply surviving with grace."
+            },
+
+            'fractured_minimal_moderate': {
+                title: "THE FRAGMENTED DREAMER",
+                desc: "Your dreams were bigger than your mind could handle. Pieces of potential scattered like broken glass. Beautiful in their own fractured way, but never whole."
+            }
+        };
+
+        // Ensure we always get a poetic ending - fallback to meaningful defaults
+        const fallbackEnding = endings['whole_minimal_cautious']; // "The Greatness Without a Witness"
+
+        // Get the ending, guaranteed to be poetic
+        const ending = endings[endingKey] || fallbackEnding;
+
+        resTitle.innerText = ending.title;
+        resDesc.innerText = ending.desc;
+    }
+</script>
+
+</body>
+</html>
